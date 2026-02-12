@@ -2,6 +2,7 @@ package tn.esprit.arctic.projspring1.entity;
 
 import jakarta.persistence.*;
 import java.io.Serializable;
+import java.util.List;
 
 @Entity
 @Table(name = "Championnat")
@@ -18,4 +19,11 @@ public class Championnat implements Serializable {
     private String stringLibelleC;
 
     private Integer integerAnnee;
+
+    @OneToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "championnat_id", referencedColumnName = "id")
+    private DetailChampionnat detailChampionnat;
+
+    @OneToMany(mappedBy = "championnat")
+    private List<Course> courseList;
 }

@@ -15,4 +15,7 @@ public class DetailChampionnat implements Serializable {
     private String stringCode;
 
     private String stringDescription;
+
+    @OneToOne(mappedBy = "detailChampionnat")
+    private Championnat championnat;
 }

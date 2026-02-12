@@ -15,4 +15,12 @@ public class Position implements Serializable {
     private Integer integerClassement;
 
     private Integer integerNbPoints;
+
+    @ManyToOne
+    @JoinColumn(name = "course_id")
+    private Course course;
+
+    @ManyToOne
+    @JoinColumn(name = "pilote_id")
+    private Pilote pilote;
 }
