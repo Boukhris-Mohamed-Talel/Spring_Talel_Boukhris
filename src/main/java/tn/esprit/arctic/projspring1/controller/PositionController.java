@@ -8,5 +8,4 @@ import tn.esprit.arctic.projspring1.service.IPositionService;
 @AllArgsConstructor
 public class PositionController {
 
-    private IPositionService positionService;
 }

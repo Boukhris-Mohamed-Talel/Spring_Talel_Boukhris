@@ -6,4 +6,5 @@ import tn.esprit.arctic.projspring1.entity.Sponsor;
 
 @Repository
 public interface SponsorRepository extends JpaRepository<Sponsor, Long> {
+    Sponsor findByStringNomAndStringPays(String stringNom, String stringPays);
 }

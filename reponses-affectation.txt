@@ -1,0 +1,623 @@
+================================================================================
+       PARTIE 3 : SERVICES D'AFFECTATION - QUESTIONS ET RÉPONSES
+================================================================================
+
+================================================================================
+3.1  Championnat addChampionnatAndAssociatedCourses(Championnat championnat)
+================================================================================
+
+QUESTION :
+  Ajouter le championnat et ses courses associés en même temps.
+
+RÉPONSE :
+
+--- IChampionnatService.java ---
+
+public interface IChampionnatService {
+    Championnat addChampionnatAndAssociatedCourses(Championnat championnat);
+}
+
+--- ChampionnatServiceImpl.java ---
+
+@Service
+@AllArgsConstructor
+public class ChampionnatServiceImpl implements IChampionnatService {
+
+    private ChampionnatRepository championnatRepository;
+
+    @Override
+    public Championnat addChampionnatAndAssociatedCourses(Championnat championnat) {
+        if (championnat.getCourseList() != null) {
+            for (Course course : championnat.getCourseList()) {
+                course.setChampionnat(championnat);
+            }
+        }
+        return championnatRepository.save(championnat);
+    }
+}
+
+--- ChampionnatController.java ---
+
+@RestController
+@AllArgsConstructor
+public class ChampionnatController {
+
+    private IChampionnatService championnatService;
+
+    @PostMapping("/add-championnat-with-courses")
+    public Championnat addChampionnatAndAssociatedCourses(@RequestBody Championnat championnat) {
+        return championnatService.addChampionnatAndAssociatedCourses(championnat);
+    }
+}
+
+EXPLICATION :
+  - La relation Championnat -> Course est OneToMany avec cascade = CascadeType.ALL.
+  - Avant de sauvegarder le championnat, on parcourt la liste des courses
+    et on affecte le championnat à chaque course (côté ManyToOne).
+  - Le save du championnat sauvegarde automatiquement les courses grâce au cascade.
+
+IMPORTANT (Entité Championnat) :
+  L'annotation sur courseList doit inclure cascade :
+    @OneToMany(mappedBy = "championnat", cascade = CascadeType.ALL)
+    private List<Course> courseList;
+
+JSON Postman (exemple) :
+  POST http://localhost:8089/add-championnat-with-courses
+  {
+    "categorieCategorie": "FORMULA1",
+    "stringLibelleC": "Championnat F1 2024",
+    "integerAnnee": 2024,
+    "courseList": [
+      { "stringEmplacement": "Monaco", "localDateDateCourse": "2024-05-26" },
+      { "stringEmplacement": "Silverstone", "localDateDateCourse": "2024-07-07" }
+    ]
+  }
+
+
+================================================================================
+3.2  DetailChampionnat ajouterEtaffecterDetailChampionnatAChampionnat(
+         DetailChampionnat dc, Long idChampionnat)
+================================================================================
+
+QUESTION :
+  Ajouter le détail championnat et l'affecter au championnat déjà existant.
+
+RÉPONSE :
+
+--- IDetailChampionnatService.java ---
+
+public interface IDetailChampionnatService {
+    DetailChampionnat ajouterEtaffecterDetailChampionnatAChampionnat(
+        DetailChampionnat dc, Long idChampionnat);
+}
+
+--- DetailChampionnatServiceImpl.java ---
+
+@Service
+@AllArgsConstructor
+public class DetailChampionnatServiceImpl implements IDetailChampionnatService {
+
+    private DetailChampionnatRepository detailChampionnatRepository;
+    private ChampionnatRepository championnatRepository;
+
+    @Override
+    public DetailChampionnat ajouterEtaffecterDetailChampionnatAChampionnat(
+            DetailChampionnat dc, Long idChampionnat) {
+        Championnat championnat = championnatRepository.findById(idChampionnat).orElse(null);
+        if (championnat != null) {
+            DetailChampionnat savedDc = detailChampionnatRepository.save(dc);
+            championnat.setDetailChampionnat(savedDc);
+            championnatRepository.save(championnat);
+            return savedDc;
+        }
+        return null;
+    }
+}
+
+--- DetailChampionnatController.java ---
+
+@RestController
+@AllArgsConstructor
+public class DetailChampionnatController {
+
+    private IDetailChampionnatService detailChampionnatService;
+
+    @PostMapping("/add-detail-championnat/{idChampionnat}")
+    public DetailChampionnat ajouterEtaffecterDetailChampionnatAChampionnat(
+            @RequestBody DetailChampionnat dc,
+            @PathVariable Long idChampionnat) {
+        return detailChampionnatService
+            .ajouterEtaffecterDetailChampionnatAChampionnat(dc, idChampionnat);
+    }
+}
+
+EXPLICATION :
+  - La relation Championnat <-> DetailChampionnat est OneToOne.
+  - On récupère d'abord le championnat par son id.
+  - On sauvegarde le DetailChampionnat en base.
+  - On affecte le DetailChampionnat au Championnat, puis on sauvegarde le Championnat.
+
+JSON Postman (exemple) :
+  POST http://localhost:8089/add-detail-championnat/1
+  {
+    "stringCode": "F1-2024",
+    "stringDescription": "Championnat de Formule 1 saison 2024"
+  }
+
+
+================================================================================
+3.3  Pilote affecterPiloteAEquipe(String libelleP, String libelleEq)
+================================================================================
+
+QUESTION :
+  Affecter un pilote déjà existant à une équipe déjà existante.
+
+RÉPONSE :
+
+--- Repository (PiloteRepository.java) ---
+
+@Repository
+public interface PiloteRepository extends JpaRepository<Pilote, Long> {
+    Pilote findByStringLibelleP(String stringLibelleP);
+}
+
+--- Repository (EquipeRepository.java) ---
+
+@Repository
+public interface EquipeRepository extends JpaRepository<Equipe, Long> {
+    Equipe findByStringLibelle(String stringLibelle);
+}
+
+--- IPiloteService.java ---
+
+public interface IPiloteService {
+    String addPilote(Pilote p);
+    Pilote affecterPiloteAEquipe(String libelleP, String libelleEq);
+}
+
+--- PiloteServiceImpl.java ---
+
+@Service
+@AllArgsConstructor
+public class PiloteServiceImpl implements IPiloteService {
+
+    private PiloteRepository piloteRepository;
+    private EquipeRepository equipeRepository;
+
+    @Override
+    public String addPilote(Pilote p) {
+        piloteRepository.save(p);
+        return "Pilote ajoute avec succes";
+    }
+
+    @Override
+    public Pilote affecterPiloteAEquipe(String libelleP, String libelleEq) {
+        Pilote pilote = piloteRepository.findByStringLibelleP(libelleP);
+        Equipe equipe = equipeRepository.findByStringLibelle(libelleEq);
+        if (pilote != null && equipe != null) {
+            pilote.setEquipe(equipe);
+            return piloteRepository.save(pilote);
+        }
+        return null;
+    }
+}
+
+--- PiloteController.java ---
+
+@RestController
+@AllArgsConstructor
+public class PiloteController {
+
+    private IPiloteService piloteService;
+
+    @PostMapping("/add-pilote")
+    public String addPilote(@RequestBody Pilote pilote) {
+        return piloteService.addPilote(pilote);
+    }
+
+    @PutMapping("/affecter-pilote-equipe/{libelleP}/{libelleEq}")
+    public Pilote affecterPiloteAEquipe(
+            @PathVariable String libelleP,
+            @PathVariable String libelleEq) {
+        return piloteService.affecterPiloteAEquipe(libelleP, libelleEq);
+    }
+}
+
+EXPLICATION :
+  - On utilise des méthodes Keyword (Spring Data) dans les repositories pour
+    chercher par libellé : findByStringLibelleP et findByStringLibelle.
+  - On récupère le pilote et l'équipe par leurs libellés.
+  - On affecte l'équipe au pilote (côté ManyToOne) et on sauvegarde.
+
+Postman (exemple) :
+  PUT http://localhost:8089/affecter-pilote-equipe/Hamilton/Mercedes
+
+
+================================================================================
+3.4  String affecterCourseAChampionnat(Long idCourse, Long idChampionnat)
+================================================================================
+
+QUESTION :
+  Affecter une course déjà existante à un championnat déjà existant.
+
+RÉPONSE :
+
+--- ICourseService.java ---
+
+public interface ICourseService {
+    String affecterCourseAChampionnat(Long idCourse, Long idChampionnat);
+}
+
+--- CourseServiceImpl.java ---
+
+@Service
+@AllArgsConstructor
+public class CourseServiceImpl implements ICourseService {
+
+    private CourseRepository courseRepository;
+    private ChampionnatRepository championnatRepository;
+
+    @Override
+    public String affecterCourseAChampionnat(Long idCourse, Long idChampionnat) {
+        Course course = courseRepository.findById(idCourse).orElse(null);
+        Championnat championnat = championnatRepository.findById(idChampionnat).orElse(null);
+        if (course != null && championnat != null) {
+            course.setChampionnat(championnat);
+            courseRepository.save(course);
+            return "Course affectee au championnat avec succes";
+        }
+        return "Course ou Championnat introuvable";
+    }
+}
+
+--- CourseController.java ---
+
+@RestController
+@AllArgsConstructor
+public class CourseController {
+
+    private ICourseService courseService;
+
+    @PutMapping("/affecter-course-championnat/{idCourse}/{idChampionnat}")
+    public String affecterCourseAChampionnat(
+            @PathVariable Long idCourse,
+            @PathVariable Long idChampionnat) {
+        return courseService.affecterCourseAChampionnat(idCourse, idChampionnat);
+    }
+}
+
+EXPLICATION :
+  - On récupère la course et le championnat par leurs ids.
+  - On affecte le championnat à la course (côté ManyToOne).
+  - On sauvegarde la course.
+
+Postman (exemple) :
+  PUT http://localhost:8089/affecter-course-championnat/1/1
+
+
+================================================================================
+3.5  Contrat ajoutContratEtAffecterASponsorEtEquipe(
+         Contrat contrat, String libelleEquipe, String nomSponsor, String pays)
+================================================================================
+
+QUESTION :
+  Ajouter un contrat et l'affecter à un sponsor et une équipe déjà existante.
+
+RÉPONSE :
+
+--- Repository (SponsorRepository.java) ---
+
+@Repository
+public interface SponsorRepository extends JpaRepository<Sponsor, Long> {
+    Sponsor findByStringNomAndStringPays(String stringNom, String stringPays);
+}
+
+--- IContratService.java ---
+
+public interface IContratService {
+    Contrat ajoutContratEtAffecterASponsorEtEquipe(
+        Contrat contrat, String libelleEquipe, String nomSponsor, String pays);
+}
+
+--- ContratServiceImpl.java ---
+
+@Service
+@AllArgsConstructor
+public class ContratServiceImpl implements IContratService {
+
+    private ContratRepository contratRepository;
+    private EquipeRepository equipeRepository;
+    private SponsorRepository sponsorRepository;
+
+    @Override
+    public Contrat ajoutContratEtAffecterASponsorEtEquipe(
+            Contrat contrat, String libelleEquipe,
+            String nomSponsor, String pays) {
+        Equipe equipe = equipeRepository.findByStringLibelle(libelleEquipe);
+        Sponsor sponsor = sponsorRepository.findByStringNomAndStringPays(nomSponsor, pays);
+        if (equipe != null && sponsor != null) {
+            contrat.setEquipe(equipe);
+            contrat.setSponsor(sponsor);
+            return contratRepository.save(contrat);
+        }
+        return null;
+    }
+}
+
+--- ContratController.java ---
+
+@RestController
+@AllArgsConstructor
+public class ContratController {
+
+    private IContratService contratService;
+
+    @PostMapping("/add-contrat/{libelleEquipe}/{nomSponsor}/{pays}")
+    public Contrat ajoutContratEtAffecterASponsorEtEquipe(
+            @RequestBody Contrat contrat,
+            @PathVariable String libelleEquipe,
+            @PathVariable String nomSponsor,
+            @PathVariable String pays) {
+        return contratService.ajoutContratEtAffecterASponsorEtEquipe(
+            contrat, libelleEquipe, nomSponsor, pays);
+    }
+}
+
+EXPLICATION :
+  - On utilise une méthode Keyword pour chercher le sponsor par nom ET pays
+    (findByStringNomAndStringPays) et l'équipe par libellé (findByStringLibelle).
+  - On récupère l'équipe et le sponsor déjà existants.
+  - On affecte le sponsor et l'équipe au contrat, puis on sauvegarde le contrat.
+
+JSON Postman (exemple) :
+  POST http://localhost:8089/add-contrat/Mercedes/Petronas/Malaisie
+  {
+    "floatMontant": 50000.0,
+    "stringAnnee": "2024",
+    "booleanArchived": false
+  }
+
+
+================================================================================
+    PARTIE 4.7 : PREREQUIS POUR LE SCHEDULING
+================================================================================
+
+================================================================================
+4.7  Float pourcentageBudgetAnnuelConsomme(Long idSponsor)
+================================================================================
+
+QUESTION :
+  Ce service permet de récupérer et d'afficher le pourcentage du budget dépensé
+  par chaque sponsor (pour les contrats) de l'année en cours par rapport à son
+  budget annuel.
+
+RÉPONSE :
+
+--- ContratRepository.java (ajout JPQL) ---
+
+@Query("SELECT SUM(c.floatMontant) FROM Contrat c WHERE c.sponsor.longIdSponsor = :idSponsor AND c.stringAnnee = :year")
+Float sumMontantBySponsorAndYear(@Param("idSponsor") Long idSponsor, @Param("year") String year);
+
+--- ISponsorService.java (ajout méthode) ---
+
+Float pourcentageBudgetAnnuelConsomme(Long idSponsor);
+
+--- SponsorServiceImpl.java (implémentation) ---
+
+@Override
+public Float pourcentageBudgetAnnuelConsomme(Long idSponsor) {
+    Sponsor sponsor = sponsorRepository.findById(idSponsor).orElse(null);
+    if (sponsor == null) return 0f;
+    String currentYear = String.valueOf(Year.now().getValue());
+    Float totalMontant = contratRepository.sumMontantBySponsorAndYear(idSponsor, currentYear);
+    if (totalMontant == null) totalMontant = 0f;
+    if (sponsor.getFloatBudgetAnnuel() == null || sponsor.getFloatBudgetAnnuel() == 0) return 0f;
+    return (totalMontant / sponsor.getFloatBudgetAnnuel()) * 100;
+}
+
+EXPLICATION :
+  - On récupère le sponsor par id.
+  - On calcule la somme des montants de tous ses contrats pour l'année en cours
+    grâce à une requête JPQL (SUM).
+  - On divise cette somme par le budget annuel du sponsor et on multiplie par 100
+    pour obtenir le pourcentage.
+
+
+================================================================================
+       PARTIE 5 : SERVICES SCHÉDULÉS - QUESTIONS ET RÉPONSES
+================================================================================
+
+PRÉREQUIS :
+  - Ajouter @EnableScheduling sur la classe principale ProjSpring1Application.java
+
+--- ProjSpring1Application.java ---
+
+@SpringBootApplication
+@EnableScheduling
+public class ProjSpring1Application {
+    public static void main(String[] args) {
+        SpringApplication.run(ProjSpring1Application.class, args);
+    }
+}
+
+
+================================================================================
+5.1  archiverContratsExpireesEtAffichageContratsActifsParEquipe
+     (toutes les 30 secondes)
+================================================================================
+
+QUESTION :
+  Créer un service schédulé qui s'exécute toutes les 30 secondes permettant
+  d'archiver les contrats dont l'année est inférieure à l'année courante.
+  Ce même service affiche la liste des contrats actifs par équipe.
+
+RÉPONSE :
+
+--- ContratRepository.java (ajout JPQL) ---
+
+@Query("SELECT c FROM Contrat c WHERE c.stringAnnee < :currentYear AND c.booleanArchived = false")
+List<Contrat> findExpiredContrats(@Param("currentYear") String currentYear);
+
+List<Contrat> findByEquipeAndBooleanArchivedFalse(Equipe equipe);
+
+--- ScheduledService.java ---
+
+@Scheduled(fixedRate = 30000)
+public void archiverContratsExpireesEtAffichageContratsActifsParEquipe() {
+    String currentYear = String.valueOf(Year.now().getValue());
+
+    // Archiver les contrats expirés
+    List<Contrat> expiredContrats = contratRepository.findExpiredContrats(currentYear);
+    for (Contrat contrat : expiredContrats) {
+        contrat.setBooleanArchived(true);
+        contratRepository.save(contrat);
+    }
+    log.info("Contrats expirés archivés : " + expiredContrats.size());
+
+    // Afficher les contrats actifs par équipe
+    List<Equipe> equipes = equipeRepository.findAll();
+    for (Equipe equipe : equipes) {
+        List<Contrat> contratsActifs = contratRepository.findByEquipeAndBooleanArchivedFalse(equipe);
+        if (!contratsActifs.isEmpty()) {
+            log.info("Equipe : " + equipe.getStringLibelle());
+            for (Contrat c : contratsActifs) {
+                log.info("\tContrat n°" + c.getLongIdContrat()
+                    + " | Montant : " + c.getFloatMontant()
+                    + " | Annee : " + c.getStringAnnee()
+                    + " | Sponsor : " + c.getSponsor().getStringNom());
+            }
+        }
+    }
+}
+
+EXPLICATION :
+  - @Scheduled(fixedRate = 30000) : s'exécute toutes les 30 secondes.
+  - On cherche les contrats non archivés dont l'année est < année courante (JPQL).
+  - On les archive (booleanArchived = true).
+  - Ensuite, on affiche pour chaque équipe ses contrats encore actifs.
+
+
+================================================================================
+5.2  afficherPourcentageBudgetParSponsor
+     (tous les lundis à 9h pile)
+================================================================================
+
+QUESTION :
+  Créer un service schédulé qui s'exécute tous les lundis à 9h pile et qui
+  permet d'afficher le pourcentage du budget dépensé par chaque sponsor de
+  l'année en cours par rapport à son budget annuel.
+  - Si pourcentage > 70% et < 100% : "attention budget presque consommé : X % !"
+  - Si pourcentage >= 100% : "budget dépassé!!" et bloquerContrat = true.
+
+RÉPONSE :
+
+--- ScheduledService.java ---
+
+@Scheduled(cron = "0 0 9 * * MON")
+public void afficherPourcentageBudgetParSponsor() {
+    List<Sponsor> sponsors = sponsorRepository.findAll();
+    for (Sponsor sponsor : sponsors) {
+        Float pourcentage = sponsorService.pourcentageBudgetAnnuelConsomme(
+            sponsor.getLongIdSponsor());
+        if (pourcentage > 100) {
+            log.info("Sponsor " + sponsor.getStringNom()
+                + " : budget dépassé!! vous ne pouvez plus faire de contrats");
+            sponsor.setBooleanBloquerContrat(true);
+            sponsorRepository.save(sponsor);
+        } else if (pourcentage > 70) {
+            log.info("Sponsor " + sponsor.getStringNom()
+                + " : attention budget presque consommé : "
+                + pourcentage.intValue() + " % !");
+        } else {
+            log.info("Sponsor " + sponsor.getStringNom()
+                + " : budget consommé à " + pourcentage.intValue() + " %");
+        }
+    }
+}
+
+EXPLICATION :
+  - @Scheduled(cron = "0 0 9 * * MON") : tous les lundis à 9h00.
+    Format cron : seconde minute heure jour-du-mois mois jour-de-la-semaine
+  - On fait appel au service pourcentageBudgetAnnuelConsomme (4.7) pour chaque sponsor.
+  - Si > 100% : message "budget dépassé" + bloquerContrat = true.
+  - Si > 70% et <= 100% : message "attention budget presque consommé".
+  - Sinon : affichage normal du pourcentage.
+
+
+================================================================================
+5.3  mettreAJourPointsEtClassement
+     (tous les 31 décembre à 11h15)
+================================================================================
+
+QUESTION :
+  Proposer une méthode qui se déclenche tous les 31 décembre de chaque année
+  à 11h15 minutes pile et qui permet de mettre à jour le nombre de points de
+  chaque pilote pour l'année en cours. Ce même service met à jour le classement
+  général de chaque coureur en se basant sur le nombre de points.
+
+RÉPONSE :
+
+--- PositionRepository.java (ajout JPQL) ---
+
+@Query("SELECT SUM(p.integerNbPoints) FROM Position p WHERE p.pilote.longIdPilote = :idPilote AND YEAR(p.course.localDateDateCourse) = :year")
+Integer sumPointsByPiloteAndYear(@Param("idPilote") Long idPilote, @Param("year") int year);
+
+--- PiloteRepository.java (ajout keyword) ---
+
+List<Pilote> findAllByOrderByIntegerNbPointsTotalDesc();
+
+--- ScheduledService.java ---
+
+@Scheduled(cron = "0 15 11 31 12 ?")
+public void mettreAJourPointsEtClassement() {
+    int currentYear = Year.now().getValue();
+    List<Pilote> pilotes = piloteRepository.findAll();
+
+    // Mettre à jour le nombre de points de chaque pilote
+    for (Pilote pilote : pilotes) {
+        Integer totalPoints = positionRepository.sumPointsByPiloteAndYear(
+            pilote.getLongIdPilote(), currentYear);
+        pilote.setIntegerNbPointsTotal(totalPoints != null ? totalPoints : 0);
+        piloteRepository.save(pilote);
+    }
+
+    // Mettre à jour le classement général (trié par points décroissants)
+    List<Pilote> pilotesTries = piloteRepository.findAllByOrderByIntegerNbPointsTotalDesc();
+    int classement = 1;
+    for (Pilote pilote : pilotesTries) {
+        pilote.setIntegerClassementGeneral(classement++);
+        piloteRepository.save(pilote);
+    }
+
+    log.info("Mise à jour des points et classement terminée pour l'année " + currentYear);
+}
+
+EXPLICATION :
+  - @Scheduled(cron = "0 15 11 31 12 ?") : 31 décembre à 11h15.
+    Format : seconde=0 minute=15 heure=11 jour=31 mois=12 jour-semaine=?
+  - Étape 1 : Pour chaque pilote, on calcule la somme de ses points via les
+    positions pour toutes les courses de l'année en cours (JPQL avec YEAR()).
+  - Étape 2 : On trie les pilotes par nbPointsTotal décroissant et on attribue
+    le classement (1, 2, 3, ...).
+
+
+================================================================================
+       RÉCAPITULATIF DES FICHIERS MODIFIÉS / CRÉÉS
+================================================================================
+
+1. ProjSpring1Application.java  -> ajout @EnableScheduling
+2. ContratRepository.java       -> ajout findExpiredContrats, findByEquipeAndBooleanArchivedFalse,
+                                   sumMontantBySponsorAndYear
+3. PositionRepository.java      -> ajout sumPointsByPiloteAndYear
+4. PiloteRepository.java        -> ajout findAllByOrderByIntegerNbPointsTotalDesc
+5. ISponsorService.java         -> ajout pourcentageBudgetAnnuelConsomme
+6. SponsorServiceImpl.java      -> implémentation pourcentageBudgetAnnuelConsomme
+7. ScheduledService.java        -> NOUVEAU : contient les 3 méthodes schédulées
+   - archiverContratsExpireesEtAffichageContratsActifsParEquipe (fixedRate=30s)
+   - afficherPourcentageBudgetParSponsor (cron lundi 9h)
+   - mettreAJourPointsEtClassement (cron 31/12 11h15)
+
+
+================================================================================
+                          FIN DU DOCUMENT
+================================================================================

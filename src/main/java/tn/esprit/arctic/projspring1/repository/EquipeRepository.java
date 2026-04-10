@@ -6,4 +6,5 @@ import tn.esprit.arctic.projspring1.entity.Equipe;
 
 @Repository
 public interface EquipeRepository extends JpaRepository<Equipe, Long> {
+    Equipe findByStringLibelle(String stringLibelle);
 }

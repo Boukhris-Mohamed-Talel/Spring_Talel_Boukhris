@@ -1,10 +1,15 @@
 package tn.esprit.arctic.projspring1.entity;
 
 import jakarta.persistence.*;
+import lombok.*;
 import java.io.Serializable;
 
 @Entity
 @Table(name = "Contrat")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class Contrat implements Serializable {
 
     @Id

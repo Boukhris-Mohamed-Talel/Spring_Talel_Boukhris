@@ -1,11 +1,16 @@
 package tn.esprit.arctic.projspring1.entity;
 
 import jakarta.persistence.*;
+import lombok.*;
 import java.io.Serializable;
 import java.util.List;
 
 @Entity
 @Table(name = "Equipe")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class Equipe implements Serializable {
 
     @Id

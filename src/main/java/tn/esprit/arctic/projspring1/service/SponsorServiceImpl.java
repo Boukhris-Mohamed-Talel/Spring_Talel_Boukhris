@@ -3,8 +3,10 @@ package tn.esprit.arctic.projspring1.service;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import tn.esprit.arctic.projspring1.entity.Sponsor;
+import tn.esprit.arctic.projspring1.repository.ContratRepository;
 import tn.esprit.arctic.projspring1.repository.SponsorRepository;
 
+import java.time.Year;
 import java.util.Date;
 import java.util.List;
 
@@ -13,6 +15,7 @@ import java.util.List;
 public class SponsorServiceImpl implements ISponsorService {
 
     private final SponsorRepository sponsorRepository;
+    private final ContratRepository contratRepository;
 
     @Override
     public Sponsor ajouterSponsor(Sponsor sponsor) {
@@ -65,5 +68,16 @@ public class SponsorServiceImpl implements ISponsorService {
         sponsor.setArchived(true);
         sponsorRepository.save(sponsor);
         return true;
+    }
+
+    @Override
+    public Float pourcentageBudgetAnnuelConsomme(Long idSponsor) {
+        Sponsor sponsor = sponsorRepository.findById(idSponsor).orElse(null);
+        if (sponsor == null) return 0f;
+        String currentYear = String.valueOf(Year.now().getValue());
+        Float totalMontant = contratRepository.sumMontantBySponsorAndYear(idSponsor, currentYear);
+        if (totalMontant == null) totalMontant = 0f;
+        if (sponsor.getFloatBudgetAnnuel() == null || sponsor.getFloatBudgetAnnuel() == 0) return 0f;
+        return (totalMontant / sponsor.getFloatBudgetAnnuel()) * 100;
     }
 }
